@@ -24,6 +24,7 @@ const (
 	QuoteSeparator      = iota
 	IdentifierSeparator = iota
 	Space               = iota
+	ENotationNumber     = iota
 )
 
 func TokenTypeToString(tokenType TokenType) string {
@@ -66,6 +67,8 @@ func TokenTypeToString(tokenType TokenType) string {
 		return "IdentifierSeparator"
 	case Space:
 		return "Space"
+	case ENotationNumber:
+		return "ENotationNumber"
 	default:
 		return fmt.Sprint(tokenType)
 	}

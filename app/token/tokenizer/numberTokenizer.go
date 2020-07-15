@@ -47,8 +47,7 @@ func (t *numberTokenizer) Tokenize(input *fileSystem.Input, tokens *token.TokenC
 				tokenizer := NewNumberTypeTokenizer(t.value, beginLineNumber, beginCharIndex, IsDigit10, token.Float)
 				return tokenizer.Tokenize(input, tokens)
 			} else {
-				tokens.Add(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex))
-				return nil
+				return validateNumber10(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex), tokens)
 			}
 		case numberFirst0State:
 			switch true {
@@ -68,15 +67,14 @@ func (t *numberTokenizer) Tokenize(input *fileSystem.Input, tokens *token.TokenC
 				tokenizer := NewNumberTypeTokenizer(t.value, beginLineNumber, beginCharIndex, IsDigit10, token.Float)
 				return tokenizer.Tokenize(input, tokens)
 			default:
-				tokens.Add(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex))
-				return nil
+				return validateNumber10(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex), tokens)
 			}
 		}
 	}
 
 	if t.currentState != numberStartState {
-		tokens.Add(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex))
 		input.ScanLn()
+		return validateNumber10(token.NewToken(token.Number10, t.value, beginLineNumber, beginCharIndex), tokens)
 	}
 	return nil
 }
@@ -110,4 +108,12 @@ func IsDigit2(char byte) bool {
 
 func IsDigit16(char byte) bool {
 	return IsDigit10(char) || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')
+}
+
+func validateNumber10(tokenItem *token.Token, tokens *token.TokenCollection) error {
+	if tokenItem.Value <= "2147483647" {
+		tokens.Add(tokenItem)
+		return nil
+	}
+	return errors.New("Number too large: " + tokenItem.Value)
 }

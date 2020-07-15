@@ -12,14 +12,18 @@ const (
 	identifierCharState  = iota
 )
 
+const identifierMaxLength = 64
+
 type identifierTokenizer struct {
-	currentState int
-	value        string
+	currentState    int
+	value           string
+	beginLineNumber int
+	beginCharIndex  int
 }
 
 func (t *identifierTokenizer) Tokenize(input *fileSystem.Input, tokens *token.TokenCollection) error {
-	beginLineNumber := input.GetLineNumber()
-	beginCharIndex := input.GetCharIndex()
+	t.beginLineNumber = input.GetLineNumber()
+	t.beginCharIndex = input.GetCharIndex()
 
 	for ; !input.IsEOLN(); input.Scan() {
 		char := input.Byte()
@@ -33,26 +37,17 @@ func (t *identifierTokenizer) Tokenize(input *fileSystem.Input, tokens *token.To
 				return errors.New("First character is invalid: " + string(char))
 			}
 		case identifierCharState:
-			if IsIdentifier(char) {
+			if IsIdentifier(char) && len(t.value) < identifierMaxLength {
 				t.value += string(char)
 			} else {
-				if IsKeyword(t.value) {
-					tokens.Add(token.NewToken(token.Keyword, t.value, beginLineNumber, beginCharIndex))
-				} else {
-					tokens.Add(token.NewToken(token.Identifier, t.value, beginLineNumber, beginCharIndex))
-				}
-				return nil
+				return validateIdentifier(t.makeIdentifier(), tokens)
 			}
 		}
 	}
 
 	if t.currentState != identifierStartState {
-		if IsKeyword(t.value) {
-			tokens.Add(token.NewToken(token.Keyword, t.value, beginLineNumber, beginCharIndex))
-		} else if t.currentState != identifierStartState {
-			tokens.Add(token.NewToken(token.Identifier, t.value, beginLineNumber, beginCharIndex))
-		}
 		input.ScanLn()
+		return validateIdentifier(t.makeIdentifier(), tokens)
 	}
 
 	return nil
@@ -101,4 +96,18 @@ func getKeywords() []string {
 		"const",
 		"continue",
 	}
+}
+
+func (t *identifierTokenizer) makeIdentifier() *token.Token {
+	if IsKeyword(t.value) {
+		return token.NewToken(token.Keyword, t.value, t.beginLineNumber, t.beginCharIndex)
+	}
+	return token.NewToken(token.Identifier, t.value, t.beginLineNumber, t.beginCharIndex)
+}
+
+func validateIdentifier(tokenItem *token.Token, tokens *token.TokenCollection) error {
+	if tokenItem.TokenType != token.Keyword || len(tokenItem.Value) <= 256 {
+		return tokens.Add(tokenItem)
+	}
+	return errors.New("Identifier too long: " + tokenItem.Value)
 }
